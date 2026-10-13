@@ -80,3 +80,253 @@ La matriz de trazabilidad permitirá relacionar cada requerimiento con los compo
 | RNF05 | Código fuente | Revisión de modularidad y documentación |
 
 Los resultados y las evidencias correspondientes se incorporarán en la sección de Pruebas y Validaciones.
+
+
+---
+
+## 2. Análisis y Diseño
+
+### 2.1 Arquitectura del sistema
+
+El sistema utiliza una arquitectura cliente-servidor, en la cual dos objetos inteligentes ESP32 establecen conexiones TCP independientes con un servidor central ejecutado en una computadora.
+
+Los dispositivos se comunican a través de una red local WiFi basada en el estándar IEEE 802.11.
+
+La arquitectura está organizada en tres componentes:
+
+1. **Cliente sensor:** ESP32 conectado a un sensor ultrasónico HC-SR04. Se encarga de obtener mediciones de distancia y transmitirlas al servidor mediante sockets TCP.
+
+2. **Servidor TCP:** aplicación ejecutada en una computadora. Recibe las mediciones, aplica un algoritmo de clasificación según los rangos de distancia y genera los comandos correspondientes.
+
+3. **Cliente actuador:** ESP32 conectado a tres LEDs. Recibe los comandos del servidor y ejecuta las acciones indicadas.
+
+El procesamiento de las mediciones se realiza en el servidor, mientras que los dispositivos ESP32 se encargan de la adquisición de datos y la actuación.
+
+### 2.2 Diagrama de arquitectura
+
+El siguiente diagrama representa los componentes del sistema, sus responsabilidades y el intercambio de información mediante conexiones TCP.
+
+```mermaid
+flowchart TB
+    subgraph RED["Red local WiFi - IEEE 802.11"]
+        direction TB
+
+        subgraph SENSOR["Objeto Inteligente 1"]
+            HC["Sensor ultrasónico HC-SR04"]
+            ESP1["ESP32 - Cliente Sensor"]
+            HC -->|"Distancia medida"| ESP1
+        end
+
+        subgraph SERVIDOR["Computadora"]
+            TCP["Servidor TCP - Python"]
+            CONTROL["Algoritmo de clasificación y control"]
+            TCP --> CONTROL
+        end
+
+        subgraph ACTUADOR["Objeto Inteligente 2"]
+            ESP2["ESP32 - Cliente Actuador"]
+            LEDS["LED rojo / amarillo / verde"]
+            ESP2 -->|"Señales de control"| LEDS
+        end
+
+        ESP1 -->|"POST: distancia medida"| TCP
+        CONTROL -->|"SET: comando de actuación"| ESP2
+        ESP1 -.->|"REGISTER: sensor"| TCP
+        ESP2 -.->|"REGISTER: actuador"| TCP
+    end
+```
+
+**Descripción del flujo de comunicación:**
+
+1. Ambos ESP32 se conectan a la misma red WiFi que permite alcanzar al servidor.
+2. El servidor TCP permanece a la espera de conexiones entrantes.
+3. Cada ESP32 establece su propia conexión TCP con el servidor.
+4. Los clientes se identifican mediante un mensaje de registro.
+5. El ESP32 sensor mide la distancia y envía los datos al servidor.
+6. El servidor procesa la medición y determina el rango correspondiente.
+7. El servidor envía el comando de actuación al segundo ESP32.
+8. El ESP32 actuador interpreta el comando y modifica el estado de los LEDs.
+
+**Nota:** Los nombres y formatos de los mensajes se verificarán con el protocolo de aplicación implementado por el grupo.
+
+
+### 2.3 Diagrama de secuencia
+
+El diagrama de secuencia representa el intercambio de mensajes entre el ESP32 sensor, el servidor TCP y el ESP32 actuador.
+
+Inicialmente, ambos dispositivos establecen una conexión TCP con el servidor y se identifican mediante el comando `REGISTER`.
+
+Posteriormente, el ESP32 sensor envía periódicamente las mediciones de distancia mediante el comando `POST`. El servidor procesa cada medición, determina el rango correspondiente y envía un comando `SET` al ESP32 actuador.
+
+El siguiente diagrama representa el comportamiento previsto del sistema.
+
+```mermaid
+sequenceDiagram
+    participant S as ESP32 Sensor
+    participant SV as Servidor TCP
+    participant A as ESP32 Actuador
+
+    S->>SV: Conexión TCP
+    A->>SV: Conexión TCP
+
+    S->>SV: REGISTER type=sensor
+    A->>SV: REGISTER type=actuator
+
+    loop Por cada medición
+        S->>S: Medir distancia con HC-SR04
+        S->>SV: POST distance=valor
+        SV->>SV: Validar y clasificar distancia
+
+        alt Rango cercano
+            SV->>A: SET redLed=blink_4, yellowLed=off, greenLed=off
+        else Rango intermedio
+            SV->>A: SET redLed=off, yellowLed=on, greenLed=off
+        else Rango lejano
+            SV->>A: SET redLed=off, yellowLed=off, greenLed=on
+        end
+
+        A->>A: Actualizar estado de los LEDs
+    end
+```
+
+**Descripción de la secuencia:**
+
+1. El servidor TCP se inicia y queda a la espera de conexiones.
+2. El ESP32 sensor establece una conexión TCP con el servidor.
+3. El ESP32 actuador establece otra conexión TCP independiente.
+4. Ambos clientes se registran utilizando el comando `REGISTER`.
+5. El sensor ultrasónico obtiene una medición de distancia.
+6. El ESP32 sensor envía la medición mediante `POST`.
+7. El servidor valida y clasifica la distancia recibida.
+8. El servidor genera y transmite el comando `SET` correspondiente.
+9. El ESP32 actuador interpreta el comando y actualiza los LEDs.
+10. El proceso de medición y control se repite mientras el sistema permanece operativo.
+
+
+### 2.4 Especificación del protocolo de aplicación
+
+#### 2.4.1 Descripción general
+
+El sistema utiliza un protocolo de aplicación para permitir el intercambio de información entre los dos clientes ESP32 y el servidor TCP.
+
+El protocolo funciona sobre TCP/IP mediante una red WiFi (IEEE 802.11) y define los comandos necesarios para identificar los dispositivos, transmitir las mediciones del sensor y controlar los actuadores.
+
+Se utilizan tres comandos principales:
+
+- `REGISTER`: registra e identifica un dispositivo cliente.
+- `POST`: transmite una medición de distancia al servidor.
+- `SET`: envía instrucciones de control al dispositivo actuador.
+
+#### 2.4.2 Comando REGISTER
+
+El comando `REGISTER` permite que cada dispositivo ESP32 se identifique ante el servidor TCP.
+
+**Dirección:** Cliente → Servidor
+
+**Argumento:** `type`
+
+**Valores permitidos:**
+- `sensor`: identifica al dispositivo encargado de medir distancias.
+- `actuator`: identifica al dispositivo encargado de controlar los LEDs.
+
+**Formato del mensaje:**
+
+`REGISTER type=<tipo>`
+
+**Ejemplos:**
+
+```text
+REGISTER type=sensor
+REGISTER type=actuator
+```
+
+El servidor utiliza esta información para distinguir las conexiones de los clientes y determinar la función de cada dispositivo.
+
+#### 2.4.3 Comando POST
+
+El comando `POST` permite que el ESP32 sensor transmita al servidor las distancias obtenidas mediante el sensor ultrasónico.
+
+**Dirección:** Cliente sensor → Servidor
+
+**Argumento:** `distance`
+
+**Unidad:** centímetros (cm)
+
+**Formato del mensaje:**
+
+`POST distance=<valor>`
+
+**Ejemplos:**
+
+```text
+POST distance=9
+POST distance=11
+POST distance=15
+```
+
+El servidor recibe el valor de distancia y lo procesa mediante el algoritmo de clasificación para determinar el comando de actuación correspondiente.
+
+#### 2.4.4 Comando SET
+
+El comando `SET` permite que el servidor TCP controle los LEDs conectados al ESP32 actuador.
+
+**Dirección:** Servidor → Cliente actuador
+
+**Argumentos:**
+
+| Argumento | Descripción |
+|-----------|-------------|
+| `redLed` | Control del LED rojo. |
+| `yellowLed` | Control del LED amarillo. |
+| `greenLed` | Control del LED verde. |
+
+**Valores permitidos:**
+
+| Valor | Significado |
+|-------|-------------|
+| `on` | Enciende el LED. |
+| `off` | Apaga el LED. |
+| `blink_2` | Hace parpadear el LED a 2 Hz. |
+| `blink_4` | Hace parpadear el LED a 4 Hz. |
+
+**Formato del mensaje:**
+
+`SET redLed=<estado>, yellowLed=<estado>, greenLed=<estado>`
+
+**Ejemplos:**
+
+```text
+SET redLed=blink_4, yellowLed=off, greenLed=off
+SET redLed=off, yellowLed=on, greenLed=off
+SET redLed=off, yellowLed=off, greenLed=on
+```
+
+El ESP32 actuador interpreta los valores recibidos y actualiza el comportamiento de los LEDs.
+
+#### 2.4.5 Secuencia de intercambio de mensajes
+
+El intercambio de información entre los dispositivos sigue el siguiente procedimiento:
+
+1. El servidor TCP inicia su ejecución y queda a la espera de conexiones.
+2. El ESP32 sensor establece una conexión TCP y envía `REGISTER type=sensor`.
+3. El ESP32 actuador establece una conexión TCP independiente y envía `REGISTER type=actuator`.
+4. El ESP32 sensor obtiene una medición de distancia.
+5. El sensor transmite la medición mediante `POST distance=<valor>`.
+6. El servidor procesa la distancia y determina el estado correspondiente de los actuadores.
+7. El servidor transmite un comando `SET` al ESP32 actuador.
+8. El actuador interpreta el mensaje y actualiza los LEDs.
+9. El proceso de medición, transmisión y actuación se repite continuamente.
+
+#### 2.4.6 Relación con el modelo TCP/IP
+
+El protocolo de comunicación del sistema se organiza en las siguientes capas:
+
+| Capa | Tecnología utilizada | Función |
+|------|----------------------|---------|
+| Aplicación | Protocolo REGISTER, POST y SET | Define los mensajes intercambiados entre los dispositivos. |
+| Transporte | TCP | Proporciona comunicación orientada a conexión y entrega ordenada y confiable de datos. |
+| Internet | IP | Permite el direccionamiento y envío de paquetes entre los dispositivos. |
+| Acceso a la red | IEEE 802.11 (WiFi) | Permite la comunicación inalámbrica dentro de la red local. |
+
+Esta organización permite que los dispositivos intercambien información mediante un protocolo de aplicación definido específicamente para el sistema.
+
