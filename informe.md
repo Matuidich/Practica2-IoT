@@ -181,7 +181,8 @@ sequenceDiagram
     A->>SV: Establecer conexion TCP
     A->>SV: REGISTER type=actuator
     SV-->>A: OK type=actuator
-
+    SV->>A: SET redLed=off, yellowLed=off, greenLed=off
+    A-->>SV: APPLIED
     loop Cada medicion
         S->>S: Medir distancia HC-SR04
 
