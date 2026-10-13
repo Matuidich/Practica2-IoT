@@ -52,15 +52,22 @@ Los valores establecidos representan objetivos de diseño que deberán verificar
 
 ### 1.4 Definición de rangos y lógica de control
 
-Los rangos de distancia y el comportamiento de los actuadores serán definidos por el grupo y documentados de acuerdo con la implementación final.
+El servidor TCP clasifica las mediciones recibidas del ESP32 sensor y determina el comportamiento de los tres LEDs conectados al ESP32 actuador.
 
-Se deberán establecer tres intervalos contiguos, sin superposiciones ni valores sin clasificar.
+Los rangos de distancia y sus acciones correspondientes son:
 
-La definición incluirá:
-- Límites exactos de cada intervalo.
-- Comportamiento esperado de los actuadores.
-- Tratamiento de mediciones inválidas.
-- Verificación de los valores de frontera.
+| Distancia medida | LED rojo | LED amarillo | LED verde |
+|---|---|---|---|
+| 0 < d < 20 cm | Parpadea a 4 Hz | Apagado | Apagado |
+| 20 ≤ d ≤ 40 cm | Apagado | Encendido | Apagado |
+| d > 40 cm | Apagado | Apagado | Encendido |
+| Medición inválida | Apagado | Apagado | Apagado |
+
+Los intervalos son contiguos y no presentan superposiciones para las distancias válidas positivas. Los valores de exactamente 20 cm y 40 cm pertenecen al rango intermedio.
+
+El servidor genera comandos `SET` para indicar al actuador el estado correspondiente de cada LED. Cuando se recibe una medición inválida, se ordena apagar los tres LEDs.
+
+Para verificar la clasificación se contemplan pruebas con valores próximos a las fronteras de 20 y 40 cm, incluyendo los propios límites. El funcionamiento físico de los LEDs se comprobará durante las pruebas del prototipo.
 
 ### 1.5 Matriz de trazabilidad
 
@@ -150,15 +157,16 @@ flowchart TB
 **Nota:** Los nombres y formatos de los mensajes se verificarán con el protocolo de aplicación implementado por el grupo.
 
 
+
 ### 2.3 Diagrama de secuencia
 
 El diagrama de secuencia representa el intercambio de mensajes entre el ESP32 sensor, el servidor TCP y el ESP32 actuador.
 
-Inicialmente, ambos dispositivos establecen una conexión TCP con el servidor y se identifican mediante el comando `REGISTER`.
+Inicialmente, ambos dispositivos establecen conexiones TCP independientes con el servidor y se identifican mediante el comando `REGISTER`. El servidor confirma el registro mediante `OK`.
 
-Posteriormente, el ESP32 sensor envía periódicamente las mediciones de distancia mediante el comando `POST`. El servidor procesa cada medición, determina el rango correspondiente y envía un comando `SET` al ESP32 actuador.
+Posteriormente, el ESP32 sensor envía periódicamente mediciones de distancia mediante el comando `POST`. El servidor valida y clasifica cada medición y transmite un comando `SET` al ESP32 actuador. Este último actualiza los LEDs y confirma la aplicación del comando mediante `APPLIED`.
 
-El siguiente diagrama representa el comportamiento previsto del sistema.
+El siguiente diagrama representa el flujo de comunicación del sistema:
 
 ```mermaid
 sequenceDiagram
@@ -166,41 +174,55 @@ sequenceDiagram
     participant SV as Servidor TCP
     participant A as ESP32 Actuador
 
-    S->>SV: Conexión TCP
-    A->>SV: Conexión TCP
-
+    S->>SV: Establecer conexion TCP
     S->>SV: REGISTER type=sensor
+    SV-->>S: OK type=sensor
+
+    A->>SV: Establecer conexion TCP
     A->>SV: REGISTER type=actuator
+    SV-->>A: OK type=actuator
 
-    loop Por cada medición
-        S->>S: Medir distancia con HC-SR04
-        S->>SV: POST distance=valor
-        SV->>SV: Validar y clasificar distancia
+    loop Cada medicion
+        S->>S: Medir distancia HC-SR04
 
-        alt Rango cercano
-            SV->>A: SET redLed=blink_4, yellowLed=off, greenLed=off
-        else Rango intermedio
-            SV->>A: SET redLed=off, yellowLed=on, greenLed=off
-        else Rango lejano
-            SV->>A: SET redLed=off, yellowLed=off, greenLed=on
+        alt Medicion valida
+            S->>SV: POST seq=N distance=valor
+            SV->>SV: Validar y clasificar
+
+            alt Distancia menor a 20 cm
+                SV->>A: SET seq=N redLed=blink_4, yellowLed=off, greenLed=off
+            else Distancia entre 20 y 40 cm
+                SV->>A: SET seq=N redLed=off, yellowLed=on, greenLed=off
+            else Distancia mayor a 40 cm
+                SV->>A: SET seq=N redLed=off, yellowLed=off, greenLed=on
+            end
+
+        else Medicion invalida
+            S->>SV: POST status=invalid
+            SV->>A: SET redLed=off, yellowLed=off, greenLed=off
         end
 
         A->>A: Actualizar estado de los LEDs
+        A-->>SV: APPLIED
     end
 ```
 
 **Descripción de la secuencia:**
 
-1. El servidor TCP se inicia y queda a la espera de conexiones.
-2. El ESP32 sensor establece una conexión TCP con el servidor.
-3. El ESP32 actuador establece otra conexión TCP independiente.
-4. Ambos clientes se registran utilizando el comando `REGISTER`.
-5. El sensor ultrasónico obtiene una medición de distancia.
-6. El ESP32 sensor envía la medición mediante `POST`.
-7. El servidor valida y clasifica la distancia recibida.
+1. El servidor TCP inicia su ejecución y queda a la espera de conexiones.
+2. El ESP32 sensor establece una conexión TCP y se registra mediante `REGISTER type=sensor`.
+3. El ESP32 actuador establece otra conexión TCP y se registra mediante `REGISTER type=actuator`.
+4. El servidor confirma los registros mediante `OK`.
+5. El ESP32 sensor obtiene una medición utilizando el HC-SR04.
+6. El sensor transmite la medición mediante `POST`, incluyendo su número de secuencia cuando corresponde.
+7. El servidor valida la información y determina el rango de distancia.
 8. El servidor genera y transmite el comando `SET` correspondiente.
 9. El ESP32 actuador interpreta el comando y actualiza los LEDs.
-10. El proceso de medición y control se repite mientras el sistema permanece operativo.
+10. El actuador confirma la aplicación mediante `APPLIED`.
+11. El proceso continúa mientras los dispositivos permanecen conectados. Ante una medición inválida, el sistema ordena apagar los tres LEDs.
+
+Los mensajes se intercambian sobre conexiones TCP independientes. El servidor centraliza la lógica de clasificación y los ESP32 realizan las tareas de medición y actuación.
+
 
 
 ### 2.4 Especificación del protocolo de aplicación

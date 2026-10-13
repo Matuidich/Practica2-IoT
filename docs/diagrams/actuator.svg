@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="460" viewBox="0 0 800 460">
+  <defs><marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6" fill="#52616c"/></marker></defs>
+  <rect width="800" height="460" fill="#fff"/>
+  <g font-family="Arial, sans-serif" font-size="15" fill="#172d43">
+    <text x="40" y="35" font-size="22" font-weight="bold">Objeto actuador — ESP32 + tres LEDs</text>
+    <rect x="40" y="80" width="220" height="270" rx="10" fill="#eef4f9" stroke="#44627f" stroke-width="2"/>
+    <text x="60" y="112" font-size="19" font-weight="bold">ESP32 actuador</text>
+    <text x="60" y="140">Alimentación USB</text>
+    <text x="170" y="174">GPIO 25</text>
+    <text x="170" y="244">GPIO 26</text>
+    <text x="170" y="314">GPIO 27</text>
+    <text x="62" y="338">GND</text>
+    <text x="355" y="148">330 Ω</text><text x="492" y="132">Rojo</text>
+    <text x="355" y="218">330 Ω</text><text x="492" y="202">Amarillo</text>
+    <text x="355" y="288">330 Ω</text><text x="492" y="272">Verde</text>
+    <text x="40" y="430">Cada GPIO → resistencia → ánodo LED; cátodos → GND del mismo ESP32.</text>
+  </g>
+  <g fill="none" stroke="#52616c" stroke-width="2.5">
+    <path d="M260 170 H340 L350 160 L360 180 L370 160 L380 180 L390 160 L400 180 L410 170 H490"/>
+    <path d="M260 240 H340 L350 230 L360 250 L370 230 L380 250 L390 230 L400 250 L410 240 H490"/>
+    <path d="M260 310 H340 L350 300 L360 320 L370 300 L380 320 L390 300 L400 320 L410 310 H490"/>
+    <path d="M516 155 V185 M516 170 H650 M516 225 V255 M516 240 H650 M516 295 V325 M516 310 H650"/>
+    <path d="M650 170 V390 H90 V350"/>
+    <path d="M650 390 V401 M638 401 H662 M642 407 H658 M646 413 H654"/>
+    <path d="M503 149 L519 135 M513 151 L530 138" marker-end="url(#arrow)"/>
+    <path d="M503 219 L519 205 M513 221 L530 208" marker-end="url(#arrow)"/>
+    <path d="M503 289 L519 275 M513 291 L530 278" marker-end="url(#arrow)"/>
+  </g>
+  <polygon points="490,155 490,185 516,170" fill="#d34b58" stroke="#52616c" stroke-width="2"/>
+  <polygon points="490,225 490,255 516,240" fill="#efc849" stroke="#52616c" stroke-width="2"/>
+  <polygon points="490,295 490,325 516,310" fill="#58a677" stroke="#52616c" stroke-width="2"/>
+  <circle cx="650" cy="240" r="4" fill="#52616c"/><circle cx="650" cy="310" r="4" fill="#52616c"/>
+</svg>

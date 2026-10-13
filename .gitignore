@@ -3,3 +3,10 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+.tools/
+.venv/
+__pycache__/
+*.py[cod]
+firmware/include/Config.local.h
+logs/
+firmware/include/Config.h

@@ -1,0 +1,2 @@
+# El servidor no tiene dependencias externas. Esta herramienta compila los ESP32.
+platformio==6.2.0

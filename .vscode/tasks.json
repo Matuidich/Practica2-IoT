@@ -1,0 +1,50 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Firmware: regenerar IntelliSense ESP32",
+            "type": "shell",
+            "command": "python",
+            "args": [
+                "-m", "platformio", "run", "-d", "firmware",
+                "-e", "sensor", "-e", "actuator", "-t", "compiledb"
+            ],
+            "windows": {
+                "command": "${workspaceFolder}/tools/pio.cmd",
+                "args": [
+                    "run", "-d", "firmware", "-e", "sensor",
+                    "-e", "actuator", "-t", "compiledb"
+                ]
+            },
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "PLATFORMIO_CORE_DIR": "${workspaceFolder}/.tools/platformio"
+                }
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Firmware: regenerar IntelliSense nativo",
+            "type": "shell",
+            "command": "python",
+            "args": ["-m", "tools.test_firmware"],
+            "windows": {
+                "command": "${workspaceFolder}/tools/python.cmd"
+            },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Firmware: regenerar IntelliSense",
+            "dependsOn": [
+                "Firmware: regenerar IntelliSense ESP32",
+                "Firmware: regenerar IntelliSense nativo"
+            ],
+            "dependsOrder": "sequence",
+            "problemMatcher": []
+        }
+    ]
+}

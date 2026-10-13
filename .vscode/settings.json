@@ -1,0 +1,8 @@
+{
+    "C_Cpp.default.compileCommands": [
+        "${workspaceFolder}/firmware/.pio/build/sensor/compile_commands.json",
+        "${workspaceFolder}/firmware/.pio/build/actuator/compile_commands.json",
+        "${workspaceFolder}/.tools/native-tests/compile_commands.json"
+    ],
+    "C_Cpp.default.cppStandard": "c++17"
+}
